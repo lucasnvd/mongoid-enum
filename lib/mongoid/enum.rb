@@ -23,41 +23,35 @@ module Mongoid
       private
       def default_options(values)
         {
-          :multiple => false,
-          :default  => values.first,
-          :required => true,
-          :validate => true
+          multiple: false,
+          default:  values.first,
+          required: true,
+          validate: true
         }
       end
 
       def set_values_constant(name, values)
-        const_name = name.to_s.upcase
-        const_set const_name, values
+        const_set(name.to_s.upcase, values.map(&:to_s))
       end
 
       def create_field(field_name, options)
-        type = options[:multiple] && :array || :string
-        field field_name, :type => type, :default => options[:default]
+        field(field_name, default: options[:default], type: options[:multiple] && :array || :string)
       end
 
       def create_validations(field_name, values, options)
-        if options[:multiple] && options[:validate]
-          validates field_name, :'mongoid/enum/validators/multiple' => { :in => values.map(&:to_sym), :allow_nil => !options[:required] }
-        #FIXME: Shouldn't this be `elsif options[:validate]` ???
-        elsif validate
-          validates field_name, :inclusion => {:in => values.map(&:to_sym)}, :allow_nil => !options[:required]
+        if options[:validate]
+          validator = (options[:multiple]) ? :'mongoid/enum/validators/multiple' : :inclusion
+          validates(field_name, validator => { in: values.map(&:to_s), allow_nil: !options[:required] })
         end
       end
 
       def define_value_scopes_and_accessors(field_name, values, options)
         values.each do |value|
-          scope value, ->{ where(field_name => value) }
-
-          if options[:multiple]
-            define_array_accessor(field_name, value)
-          else
-            define_string_accessor(field_name, value)
+          scope(value) do
+            where(field_name => value)
           end
+          
+          options[:multiple] ? define_array_accessor(field_name, value) : define_string_accessor(field_name, value)
         end
       end
 
@@ -80,23 +74,35 @@ module Mongoid
       end
 
       def define_array_accessor(field_name, value)
-        class_eval "def #{value}?() self.#{field_name}.include?(:#{value.to_s}) end"
-        class_eval "def #{value}!() update_attributes! :#{field_name} => (self.#{field_name} || []) + [#{value.to_s}] end"
+        define_method("#{value}?") do
+          self[field_name].include?(value.to_s)
+        end
+        
+        define_method("#{value}!") do
+          update_attributes!(field_name => (self[field_name] || []) << value.to_s)
+        end
+        
+        #class_eval "def #{value}?() self.#{field_name}.include?(:#{value.to_s}) end"
+        #class_eval "def #{value}!() update_attributes! :#{field_name} => (self.#{field_name} || []) + [#{value.to_s}] end"
       end
 
       def define_string_accessor(field_name, value)
-        define_method(:"#{value}?") do
-          method(:"#{field_name}").() == value.to_s
+        define_method("#{value}?") do
+          self[field_name] == value.to_s
         end
         
         # Saving value as string instead of symbol. Symbols were deprecated in Mongo since version 2.8
-        define_method(:"#{value}!") do
-          update_attributes!(:"#{field_name}" => value.to_s)
+        define_method("#{value}!") do
+          update_attributes!(field_name => value.to_s)
         end
-        
-        #class_eval "def #{value}?() self.#{field_name} == #{value.to_s} end"
-        #class_eval "def #{value}!() update_attributes! :#{field_name} => #{value.to_s} end"
       end
     end
   end
 end
+
+#         if options[:multiple] && options[:validate]
+#           validates field_name, :'mongoid/enum/validators/multiple' => { :in => values.map(&:to_sym), :allow_nil => !options[:required] }
+#         FIXME: Shouldn't this be `elsif options[:validate]` ???
+#         elsif validate
+#           validates field_name, :inclusion => {:in => values.map(&:to_sym)}, :allow_nil => !options[:required]
+#         end
