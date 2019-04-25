@@ -17,7 +17,7 @@ module Mongoid
 
         create_validations field_name, values, options
         define_value_scopes_and_accessors field_name, values, options
-        define_field_accessor name, field_name, options
+        define_field_accessors name, field_name, options
       end
 
       private
@@ -51,29 +51,27 @@ module Mongoid
             where(field_name => value)
           end
           
-          options[:multiple] ? define_array_accessor(field_name, value) : define_string_accessor(field_name, value)
+          options[:multiple] ? define_array_value_accessor(field_name, value) : define_string_value_accessor(field_name, value)
         end
       end
 
-      def define_field_accessor(name, field_name, options)
+      def define_field_accessors(name, field_name, options)
         if options[:multiple]
-          define_array_field_accessor name, field_name
+          define_method("#{name}=") do |vals|
+            self[field_name] = Array(vals).compact.map(&:to_s)
+          end
         else
-          define_string_field_accessor name, field_name
+          define_method("#{name}=") do |val|
+            self[field_name] = val.to_s
+          end
+        end
+        
+        define_method(name) do
+          self[field_name]
         end
       end
 
-      def define_array_field_accessor(name, field_name)
-        class_eval "def #{name}=(vals) self.write_attribute(:#{field_name}, Array(vals).compact.map(&:to_sym)) end"
-        class_eval "def #{name}() self.read_attribute(:#{field_name}) end"
-      end
-
-      def define_string_field_accessor(name, field_name)
-        class_eval "def #{name}=(val) self.write_attribute(:#{field_name}, val && val.to_sym || nil) end"
-        class_eval "def #{name}() self.read_attribute(:#{field_name}) end"
-      end
-
-      def define_array_accessor(field_name, value)
+      def define_array_value_accessor(field_name, value)
         define_method("#{value}?") do
           self[field_name].include?(value.to_s)
         end
@@ -81,12 +79,9 @@ module Mongoid
         define_method("#{value}!") do
           update_attributes!(field_name => (self[field_name] || []) << value.to_s)
         end
-        
-        #class_eval "def #{value}?() self.#{field_name}.include?(:#{value.to_s}) end"
-        #class_eval "def #{value}!() update_attributes! :#{field_name} => (self.#{field_name} || []) + [#{value.to_s}] end"
       end
 
-      def define_string_accessor(field_name, value)
+      def define_string_value_accessor(field_name, value)
         define_method("#{value}?") do
           self[field_name] == value.to_s
         end
@@ -106,3 +101,13 @@ end
 #         elsif validate
 #           validates field_name, :inclusion => {:in => values.map(&:to_sym)}, :allow_nil => !options[:required]
 #         end
+
+#       def define_field_accessor(name, field_name, options)
+#         return define_array_field_accessor(name, field_name) if options[:multiple]
+#         define_string_field_accessor(name, field_name)
+#       end
+
+#       def define_array_field_accessor(name, field_name)
+#         class_eval "def #{name}=(vals) self.write_attribute(:#{field_name}, Array(vals).compact.map(&:to_sym)) end"
+#         class_eval "def #{name}() self.read_attribute(:#{field_name}) end"
+#       end
