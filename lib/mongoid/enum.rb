@@ -9,15 +9,14 @@ module Mongoid
 
       def enum(name, values, options = {})
         field_name = :"#{Mongoid::Enum.configuration.field_name_prefix}#{name}"
-        options = default_options(values).merge(options)
+        options    = default_options(values).merge(options)
 
-        set_values_constant name, values
+        set_values_constant(name, values)
+        create_field_and_index(field_name, options)
 
-        create_field field_name, options
-
-        create_validations field_name, values, options
-        define_value_scopes_and_accessors field_name, values, options
-        define_field_accessors name, field_name, options
+        create_validations(field_name, values, options)
+        define_value_scopes_and_accessors(field_name, values, options)
+        define_field_accessors(name, field_name, options)
       end
 
       private
@@ -34,8 +33,9 @@ module Mongoid
         const_set(name.to_s.upcase, values.map(&:to_s))
       end
 
-      def create_field(field_name, options)
+      def create_field_and_index(field_name, options)
         field(field_name, default: options[:default], type: options[:multiple] && :array || :string)
+        index({ field_name => 1 }, { background: 1, sparse: 1 })
       end
 
       def create_validations(field_name, values, options)
