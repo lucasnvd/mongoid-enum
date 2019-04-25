@@ -85,8 +85,17 @@ module Mongoid
       end
 
       def define_string_accessor(field_name, value)
-        class_eval "def #{value}?() self.#{field_name} == #{value.to_s} end"
-        class_eval "def #{value}!() update_attributes! :#{field_name} => #{value.to_s} end"
+        define_method(:"#{value}?") do
+          method(:"#{field_name}").() == value.to_s
+        end
+        
+        # Saving value as string instead of symbol. Symbols were deprecated in Mongo since version 2.8
+        define_method(:"#{value}!") do
+          update_attributes!(:"#{field_name}" => value.to_s)
+        end
+        
+        #class_eval "def #{value}?() self.#{field_name} == #{value.to_s} end"
+        #class_eval "def #{value}!() update_attributes! :#{field_name} => #{value.to_s} end"
       end
     end
   end
