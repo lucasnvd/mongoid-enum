@@ -47,7 +47,7 @@ module Mongoid
 
       def define_value_scopes_and_accessors(field_name, values, options)
         values.each do |value|
-          scope(value) do
+          scope value, -> do
             where(field_name => value)
           end
           
