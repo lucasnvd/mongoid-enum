@@ -36,7 +36,7 @@ module Mongoid
       end
 
       def create_field(field_name, options)
-        type = options[:multiple] && Array || Symbol
+        type = options[:multiple] && :array || :string
         field field_name, :type => type, :default => options[:default]
       end
 
@@ -80,13 +80,13 @@ module Mongoid
       end
 
       def define_array_accessor(field_name, value)
-        class_eval "def #{value}?() self.#{field_name}.include?(:#{value}) end"
-        class_eval "def #{value}!() update_attributes! :#{field_name} => (self.#{field_name} || []) + [:#{value}] end"
+        class_eval "def #{value}?() self.#{field_name}.include?(:#{value.to_s}) end"
+        class_eval "def #{value}!() update_attributes! :#{field_name} => (self.#{field_name} || []) + [#{value.to_s}] end"
       end
 
       def define_string_accessor(field_name, value)
-        class_eval "def #{value}?() self.#{field_name} == :#{value} end"
-        class_eval "def #{value}!() update_attributes! :#{field_name} => :#{value} end"
+        class_eval "def #{value}?() self.#{field_name} == #{value.to_s} end"
+        class_eval "def #{value}!() update_attributes! :#{field_name} => #{value.to_s} end"
       end
     end
   end
