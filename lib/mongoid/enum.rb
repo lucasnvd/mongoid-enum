@@ -25,6 +25,8 @@ module Mongoid
           multiple: false,
           default:  values.first,
           required: true,
+          scopes: true,
+          index: true,
           validate: true
         }
       end
@@ -35,7 +37,9 @@ module Mongoid
 
       def create_field_and_index(field_name, options)
         field(field_name, default: options[:default], type: options[:multiple] && :array || :string)
-        index({ field_name => 1 }, { background: 1, sparse: 1 })
+        if options[:index]
+          index({ field_name => 1 }, { background: 1, sparse: 1 })
+        end
       end
 
       def create_validations(field_name, values, options)
@@ -47,11 +51,17 @@ module Mongoid
 
       def define_value_scopes_and_accessors(field_name, values, options)
         values.each do |value|
-          scope value, -> do
-            where(field_name => value)
+          if options[:scopes]
+            scope value, -> do
+              where(field_name => value)
+            end
           end
           
-          options[:multiple] ? define_array_value_accessor(field_name, value) : define_string_value_accessor(field_name, value)
+          if options[:multiple]
+            define_array_value_accessor(field_name, value)
+          else
+            define_string_value_accessor(field_name, value)
+          end         
         end
       end
 
